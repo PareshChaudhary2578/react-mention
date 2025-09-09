@@ -1,0 +1,14 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+.ql-toolbar {
+  display: none !important;
+}
+
+.ql-editor .mention {
+  background: #f1f3f6;   /* light teal background */
+  border-radius: 6px;    /* rounded corners */
+  padding: 2px 3px;      /* spacing */
+  border : 1px solid #ccc; /* light gray border */
+}
