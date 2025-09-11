@@ -15,9 +15,6 @@
     "@lexical/react": "^0.34.0",
     "@mui/material": "^7.3.2",
     "@primereact/core": "^11.0.0-alpha.1",
-    "draft-js": "^0.11.7",
-    "draftjs-to-html": "^0.9.1",
-    "html-to-draftjs": "^1.5.0",
     "lexical": "^0.34.0",
     "lexical-beautiful-mentions": "^0.1.48",
     "lucide-react": "^0.543.0",
@@ -27,7 +24,6 @@
     "quill-mention": "^6.1.1",
     "react": "^19.1.1",
     "react-dom": "^19.1.1",
-    "react-draft-wysiwyg": "^1.15.0",
     "react-mentions": "^4.4.10"
   },
   "devDependencies": {
