@@ -2,6 +2,9 @@ import React, { useEffect, useRef, useState } from "react";
 import { Search, X } from "lucide-react";
 import "./mention.css";
 import fields from "./fieldData";
+import ReactDOM from "react-dom/client";
+import Tooltip from "@mui/material/Tooltip";
+import Typography from "@mui/material/Typography";
 
 export default function WYSIWYGEditor() {
   const editorRef = useRef(null);
@@ -43,17 +46,42 @@ export default function WYSIWYGEditor() {
     };
   }, [suggestionOpen]);
 
-  useEffect(() => {
-    if (editorRef.current && !isInitialized) {
-      editorRef.current.innerHTML = convertPlainToEditorContent(value);
+  // useEffect(() => {
+  //   if (editorRef.current && !isInitialized) {
+  //     // editorRef.current.innerHTML = convertPlainToEditorContent(value);
+  //     editorRef.current.innerHTML = parseWithMentions(
+  //       editorRef.current.innerHTML,
+  //       Object.fromEntries(fields.map((f) => [f.displayName, f]))
+  //     );
+  //     console.log("default : " , parseWithMentions(
+  //       editorRef.current.innerHTML,
+  //       Object.fromEntries(fields.map((f) => [f.displayName, f]))
+  //     ));
       
-      // Set cursor to end after content is set
-      setTimeout(() => {
-        setCursorToEnd();
-        setIsInitialized(true);
-      }, 0);
-    }
-  }, [isInitialized]);
+  //     // Set cursor to end after content is set
+  //     setTimeout(() => {
+  //       setCursorToEnd();
+  //       setIsInitialized(true);
+  //     }, 0);
+  //   }
+  // }, [isInitialized]);
+
+  useEffect(() => {
+  if (editorRef.current && !isInitialized) {
+    const fieldsMap = Object.fromEntries(fields.map(f => [f.displayName, f]));
+
+    const elements = parseWithMentions(value, fieldsMap);
+
+    // Instead of innerHTML, render directly into the editor
+    ReactDOM.createRoot(editorRef.current).render(<>{elements}</>);
+
+    setTimeout(() => {
+      setCursorToEnd();
+      setIsInitialized(true);
+    }, 0);
+  }
+}, [isInitialized]);
+
 
   useEffect(() => {
     if (suggestionOpen && itemRefs.current[highlightIndex]) {
@@ -111,7 +139,6 @@ export default function WYSIWYGEditor() {
       }
     }
   };
-
  
 
   const filteredFields = fields.filter((field) =>
@@ -170,7 +197,7 @@ export default function WYSIWYGEditor() {
       setValue(convertEditorContentToPlain(editorRef.current.innerHTML));
     }
   };
-
+console.log("value",value);
 
   function convertEditorContentToPlain(text) {
   // Parse the HTML string
@@ -213,118 +240,152 @@ export default function WYSIWYGEditor() {
     // }).replace(/ /g, "&nbsp;"); // preserve spaces like editor does
   }
 
-  const insertField = (field) => {
-    if (!atSignRange || !savedRange) {
-      setSuggestionOpen(false);
-      return;
+
+
+const insertField = (field) => {
+  if (!atSignRange || !savedRange) {
+    setSuggestionOpen(false);
+    return;
+  }
+
+  try {
+    // Create a container span for the React component
+    const span = document.createElement("span");
+    span.contentEditable = "false";
+    span.className = "mention-span";
+    span.setAttribute("data-field-id", field.id);
+
+    // Render Tooltip + field UI inside the span
+    ReactDOM.createRoot(span).render(
+      <Tooltip title={field?.description ? field.description : null} arrow>
+        <span className="cursor-pointer" style={{ display: "inline-flex", alignItems: "center", gap: "4px" }}>
+          <img
+            src="./Carrier_Connect.png"
+            alt={field.displayName}
+            draggable={false}
+            style={{ width: 16, height: 16 }}
+          />
+          <p>{field.displayName}</p>
+        </span>
+      </Tooltip>
+    );
+
+    // Get current selection
+    const selection = window.getSelection();
+    selection.removeAllRanges();
+
+    // Find and replace everything from @ to current cursor position
+    const currentRange = document.createRange();
+    const walker = document.createTreeWalker(
+      editorRef.current,
+      NodeFilter.SHOW_TEXT,
+      null,
+      false
+    );
+
+    let atNode = null;
+    let atOffset = -1;
+
+    let node;
+    while ((node = walker.nextNode())) {
+      const text = node.textContent;
+      const atIndex = text.lastIndexOf("@");
+
+      if (atIndex !== -1) {
+        atNode = node;
+        atOffset = atIndex;
+        break;
+      }
     }
-    try {
-      // Create the field span element
-      const span = document.createElement("span");
-      span.contentEditable = "false";
-      span.className = "mention-span";
-      // span.textContent = `${field.displayName}`;
-      span.setAttribute("data-field-id", field.id);
 
-      // // Add image inside span
-      const img = document.createElement("img");
-      img.src = "./Carrier_Connect.png"; // Replace with your image URL
-      img.alt = field.displayName;
-      img.draggable = false;
+    if (atNode && atOffset !== -1) {
+      // Create range from @ to current cursor position
+      currentRange.setStart(atNode, atOffset);
 
-      // // add text
-      const fieldName = document.createElement("span");
-      fieldName.textContent = field.displayName;
+      const currentSelection = window.getSelection();
+      if (currentSelection.rangeCount > 0) {
+        const cursorRange = currentSelection.getRangeAt(0);
+        currentRange.setEnd(cursorRange.startContainer, cursorRange.startOffset);
+      } else {
+        currentRange.setEnd(atNode, atOffset + 1);
+      }
 
-      // // Append image + text
-      span.appendChild(img);
-      span.appendChild(fieldName);
+      // Delete the selected content (@ and any typed text)
+      currentRange.deleteContents();
 
+      // Insert the tooltip-enabled span
+      currentRange.insertNode(span);
 
-      // Get current selection
-      const selection = window.getSelection();
+      // Position cursor after the span
+      currentRange.setStartAfter(span);
+      currentRange.setEndAfter(span);
       selection.removeAllRanges();
+      selection.addRange(currentRange);
 
-      // Find and replace everything from @ to current cursor position
-      const currentRange = document.createRange();
-      const walker = document.createTreeWalker(
-        editorRef.current,
-        NodeFilter.SHOW_TEXT,
-        null,
-        false
-      );
-
-      let atNode = null;
-      let atOffset = -1;
-      let currentNode = null;
-      let currentOffset = 0;
-
-      // Find the @ character
-      let node;
-      while ((node = walker.nextNode())) {
-        const text = node.textContent;
-        const atIndex = text.lastIndexOf("@");
-
-        if (atIndex !== -1) {
-          // Check if this @ is before or at our saved position
-          atNode = node;
-          atOffset = atIndex;
-          break;
-        }
-      }
-
-      if (atNode && atOffset !== -1) {
-        // Create range from @ to current cursor position
-        currentRange.setStart(atNode, atOffset);
-
-        // Set end to current cursor position
-        const currentSelection = window.getSelection();
-        if (currentSelection.rangeCount > 0) {
-          const cursorRange = currentSelection.getRangeAt(0);
-          currentRange.setEnd(
-            cursorRange.startContainer,
-            cursorRange.startOffset
-          );
-        } else {
-          // Fallback: set end after the @ character
-          currentRange.setEnd(atNode, atOffset + 1);
-        }
-
-        // Delete the selected content (@ and any typed text)
-        currentRange.deleteContents();
-
-        // Insert the field span
-        currentRange.insertNode(span);
-
-
-        // Position cursor after the span
-        currentRange.setStartAfter(span);
-        currentRange.setEndAfter(span);
-        selection.removeAllRanges();
-        selection.addRange(currentRange);
-
-
-
-        // Add a space after the field
-        const spaceNode = document.createTextNode("\u00A0");
-        currentRange.insertNode(spaceNode);
-        currentRange.setStartAfter(spaceNode);
-        currentRange.setEndAfter(spaceNode);
-        selection.removeAllRanges();
-        selection.addRange(currentRange);
-      }
-
-      setSuggestionOpen(false);
-      setAtSignRange(null);
-      setSavedRange(null);
-
-      // Focus back to editor
-      editorRef.current.focus();
-    } catch (error) {
-      console.error("Error inserting field:", error);
-      setSuggestionOpen(false);
+      // Add a space after the field
+      const spaceNode = document.createTextNode("\u00A0");
+      currentRange.insertNode(spaceNode);
+      currentRange.setStartAfter(spaceNode);
+      currentRange.setEndAfter(spaceNode);
+      selection.removeAllRanges();
+      selection.addRange(currentRange);
     }
-  };
+
+    setSuggestionOpen(false);
+    setAtSignRange(null);
+    setSavedRange(null);
+
+    // Focus back to editor
+    editorRef.current.focus();
+  } catch (error) {
+    console.error("Error inserting field:", error);
+    setSuggestionOpen(false);
+  }
+};
+
+function parseWithMentions(text, fieldsMap) {
+  const parts = text.split(/(@@.*?@@)/g);
+
+  return parts.map((part, index) => {
+    const match = part.match(/@@(.*?)@@/);
+
+    if (match) {
+      const displayName = match[1];
+      const field = fieldsMap[displayName];
+
+      return (
+        <Tooltip
+          key={index}
+          title={field?.description || ""}
+          arrow
+        >
+          <span
+            contentEditable={false}
+            className="mention-span"
+            data-field-id={field?.id || ""}
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: "4px",
+              cursor: "pointer",
+            }}
+          >
+            <img
+              src="./Carrier_Connect.png"
+              alt={field?.displayName}
+              draggable={false}
+              style={{ width: 16, height: 16 }}
+            />
+            <p style={{ margin: 0 }}>{field?.displayName}</p>
+          </span>
+        </Tooltip>
+      );
+    }
+
+    return <span key={index}>{part}</span>;
+  });
+}
+
 
   return (
     <div className="p-4">
