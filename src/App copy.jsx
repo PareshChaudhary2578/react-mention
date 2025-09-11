@@ -6,6 +6,7 @@ const MentionInput = () => {
   const [currentMention, setCurrentMention] = useState('');
   const [mentionStartIndex, setMentionStartIndex] = useState(-1);
   const [selectedSuggestionIndex, setSelectedSuggestionIndex] = useState(0);
+  const [value , setValue] = useState(null);
   
   const editableRef = useRef(null);
   const suggestionRef = useRef(null);
@@ -62,9 +63,61 @@ const MentionInput = () => {
     return preCaretRange.toString().length;
   };
 
+  // Check if cursor is immediately after a mention
+  const isCursorAfterMention = () => {
+    const selection = window.getSelection();
+    if (selection.rangeCount === 0) return null;
+    
+    const range = selection.getRangeAt(0);
+    const container = range.startContainer;
+    
+    // If we're in a text node, check the previous sibling
+    if (container.nodeType === Node.TEXT_NODE && range.startOffset === 0) {
+      const prevSibling = container.previousSibling;
+      if (prevSibling && prevSibling.classList && prevSibling.classList.contains('mention-tag')) {
+        return prevSibling;
+      }
+    }
+    
+    // If we're directly in the contentEditable, check child nodes
+    if (container === editableRef.current) {
+      const childNodes = Array.from(container.childNodes);
+      const nodeIndex = range.startOffset - 1;
+      const prevNode = childNodes[nodeIndex];
+      if (prevNode && prevNode.classList && prevNode.classList.contains('mention-tag')) {
+        return prevNode;
+      }
+    }
+    
+    return null;
+  };
+
+  // Remove a mention element and set cursor position
+  const removeMention = (mentionElement) => {
+    const selection = window.getSelection();
+    const range = document.createRange();
+    
+    // Position cursor where the mention was
+    range.setStartBefore(mentionElement);
+    range.setEndBefore(mentionElement);
+    
+    // Remove the mention
+    mentionElement.remove();
+    
+    // Update cursor position
+    selection.removeAllRanges();
+    selection.addRange(range);
+    
+    // Focus back on the editor
+    editableRef.current.focus();
+  };
+
   const handleInput = (e) => {
     const text = getPlainText();
     const cursorPosition = getCursorOffset();
+
+    console.log("e : " , e);
+    console.log("text : " , text);
     
     // Find the last @ before cursor
     let mentionStart = -1;
@@ -92,9 +145,11 @@ const MentionInput = () => {
       
       setTimeout(() => {
         const position = getCursorPosition();
+        if(position.top <= 0 || position.left <= 0 ) return;
         setSuggestionPosition(position);
       }, 10);
     } else {
+      setValue(e);
       setShowSuggestions(false);
       setCurrentMention('');
       setMentionStartIndex(-1);
@@ -142,7 +197,7 @@ const MentionInput = () => {
       margin: 0 2px;
       display: inline-block;
     `;
-    mentionSpan.textContent = `${user.username}`;
+    mentionSpan.textContent = `@${user.username}`;
     mentionSpan.setAttribute('data-user-id', user.id);
     mentionSpan.setAttribute('data-username', user.username);
     
@@ -177,6 +232,16 @@ const MentionInput = () => {
   };
 
   const handleKeyDown = (e) => {
+    // Handle backspace for mentions
+    if (e.key === 'Backspace') {
+      const mentionToRemove = isCursorAfterMention();
+      if (mentionToRemove) {
+        e.preventDefault();
+        removeMention(mentionToRemove);
+        return;
+      }
+    }
+    
     if (!showSuggestions) return;
     
     const filteredSuggestions = getFilteredSuggestions();
@@ -259,9 +324,11 @@ const MentionInput = () => {
 
   const filteredSuggestions = getFilteredSuggestions();
 
+  console.log('suggestionPosition : ' , suggestionPosition);
+
   return (
     <div className="w-full max-w-2xl mx-auto p-6">
-      <h1 className="text-2xl font-bold mb-4 text-gray-800">Mention Functionality with Styled Names</h1>
+      <h1 className="text-2xl font-bold mb-4 text-gray-800">Mention Input with Backspace Support</h1>
       
       <div className="relative">
         <div
@@ -349,6 +416,7 @@ const MentionInput = () => {
           <li>• Selected mentions will be highlighted with colored background</li>
           <li>• Use arrow keys to navigate suggestions</li>
           <li>• Press Enter or Tab to select, Escape to cancel</li>
+          <li>• <strong>Use Backspace to remove mentions when cursor is right after them</strong></li>
           <li>• Mentions are non-editable styled elements</li>
         </ul>
       </div>
