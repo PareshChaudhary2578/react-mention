@@ -9,7 +9,7 @@ import Typography from "@mui/material/Typography";
 export default function WYSIWYGEditor() {
   const editorRef = useRef(null);
   const [suggestionOpen, setSuggestionOpen] = useState(false);
-  const [suggestionPosition, setSuggestionPosition] = useState({ x: 0, y: 0 });
+  const [suggestionPosition, setSuggestionPosition] = useState({ left: 0, top: 0 });
   const [searchTerm, setSearchTerm] = useState("");
   const [savedRange, setSavedRange] = useState(null);
   const [atSignRange, setAtSignRange] = useState(null); // Store the @ character range specifically
@@ -110,9 +110,13 @@ export default function WYSIWYGEditor() {
         setAtSignRange(atRange);
         setSavedRange(range.cloneRange());
         setSuggestionOpen(true);
+        
+        // current position of cursor
+        const cursorPos = { top: rect.top + window.scrollY, left: rect.left };
+        const { top, left } = calculateDropdownPosition(cursorPos);
         setSuggestionPosition({
-          x: rect.left,
-          y: rect.bottom + window.scrollY,
+          left,
+          top,
         });
         setSearchTerm(""); // Reset search term
       }, 0);
@@ -197,8 +201,6 @@ export default function WYSIWYGEditor() {
       setValue(convertEditorContentToPlain(editorRef.current.innerHTML));
     }
   };
-console.log("value",value);
-
   function convertEditorContentToPlain(text) {
   // Parse the HTML string
   const parser = new DOMParser();
@@ -218,27 +220,21 @@ console.log("value",value);
     .trim();
 }
 
- function convertPlainToEditorContent(text) {
-  console.log("Converting plain to editor content:", text);
-  // Regex to find @@...@@ mentions
-    return text.replace(/@@(.*?)@@/g, (match, mentionText) => {
-      return `
-        <span contenteditable="false" class="mention-span" data-field-id="">
-          <img src="./Carrier_Connect.png" alt="${mentionText}" draggable="false">
-          <span>${mentionText}</span>
-        </span>
-      `;
-    }); // preserve spaces like editor does
 
-    //   return text.replace(/@@(.*?)@@/g, (match, mentionText) => {
-    //   return `
-    //     <span contenteditable="false" class="mention-span" data-field-id="">
-    //       <img src="./Carrier_Connect.png" alt="${mentionText}" draggable="false">
-    //       <span>${mentionText}</span>
-    //     </span>
-    //   `;
-    // }).replace(/ /g, "&nbsp;"); // preserve spaces like editor does
-  }
+  // Calculate dropdown position
+const calculateDropdownPosition = (cursorPos) => {
+    const dropdownWidth = 250;
+
+    let { top, left } = cursorPos;
+
+    //right overflow stop
+    if (left + dropdownWidth > window.innerWidth) {
+      left = window.innerWidth - dropdownWidth - 10; // 10px padding from edge
+      top = top + 10; // adjust top slightly if needed
+    }
+
+    return { top, left };
+  };
 
 
 
@@ -393,14 +389,14 @@ function parseWithMentions(text, fieldsMap) {
         <div
           style={{
             position: "fixed",
-            top: suggestionPosition.y + 10,
-            left: suggestionPosition.x,
+            top: suggestionPosition.top + 10,
+            left: suggestionPosition.left,
             zIndex: 1000,
           }}
           ref={suggestionRef}
-          className="shadow-2xl"
+          className=""
         >
-          <div className="bg-white rounded-lg border border-gray-300 w-50 max-h-96">
+          <div className="bg-white rounded-lg  w-[250px] max-h-[390px] shadow-2xl">
             {/* Header */}
             <div className="flex items-center justify-between p-3  rounded-lg">
               <h2 className="text-sm font-semibold text-gray-900">
