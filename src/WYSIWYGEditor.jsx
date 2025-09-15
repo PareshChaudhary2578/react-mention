@@ -5,6 +5,7 @@ import fields from "./fieldData";
 import ReactDOM from "react-dom/client";
 import Tooltip from "@mui/material/Tooltip";
 import Typography from "@mui/material/Typography";
+import amsIcon from "./ams.svg";
 
 export default function WYSIWYGEditor() {
   const editorRef = useRef(null);
@@ -16,8 +17,13 @@ export default function WYSIWYGEditor() {
   const [highlightIndex, setHighlightIndex] = useState(0);
   const itemRefs = useRef([]);
   const suggestionRef = useRef(null);
-  const [value,setValue] = useState("test demo @@Mapped Product@@ test 13333 @@Division@@ 123");
+  // const [value,setValue] = useState("test demo @@Mapped Product@@ test 13333 @@Division@@ 123");
+  const [value,setValue] = useState("");
   const [isInitialized, setIsInitialized] = useState(false);
+
+  const TRIGGER_CHARS = ["@", "/"];
+
+  console.log("value",value);
 
   useEffect(() => {
     if (suggestionOpen) {
@@ -46,26 +52,6 @@ export default function WYSIWYGEditor() {
     };
   }, [suggestionOpen]);
 
-  // useEffect(() => {
-  //   if (editorRef.current && !isInitialized) {
-  //     // editorRef.current.innerHTML = convertPlainToEditorContent(value);
-  //     editorRef.current.innerHTML = parseWithMentions(
-  //       editorRef.current.innerHTML,
-  //       Object.fromEntries(fields.map((f) => [f.displayName, f]))
-  //     );
-  //     console.log("default : " , parseWithMentions(
-  //       editorRef.current.innerHTML,
-  //       Object.fromEntries(fields.map((f) => [f.displayName, f]))
-  //     ));
-      
-  //     // Set cursor to end after content is set
-  //     setTimeout(() => {
-  //       setCursorToEnd();
-  //       setIsInitialized(true);
-  //     }, 0);
-  //   }
-  // }, [isInitialized]);
-
   useEffect(() => {
   if (editorRef.current && !isInitialized) {
     const fieldsMap = Object.fromEntries(fields.map(f => [f.displayName, f]));
@@ -93,7 +79,7 @@ export default function WYSIWYGEditor() {
   }, [highlightIndex, suggestionOpen]);
 
   const handleKeyDown = (e) => {
-    if (e.key === "@") {
+    if (TRIGGER_CHARS.includes(e.key)) {
       // Let the @ character be inserted first
       setTimeout(() => {
         const selection = window.getSelection();
@@ -139,11 +125,12 @@ export default function WYSIWYGEditor() {
       if (filteredFields[highlightIndex]) {
         insertField(filteredFields[highlightIndex]);
         setSuggestionOpen(false);
-        setValue((pre) => pre + "@@"+filteredFields[highlightIndex].displayName+"@@");
+        const selectedField = filteredFields[highlightIndex];
+        const prefix = selectedField.type == "CC" ? "@@" : "$$";
+        setValue((pre) => pre + prefix + selectedField.displayName + prefix);
       }
     }
   };
- 
 
   const filteredFields = fields.filter((field) =>
     field.displayName.toLowerCase().includes(searchTerm.toLowerCase())
@@ -180,7 +167,7 @@ export default function WYSIWYGEditor() {
         let atIndex = -1;
         for (let i = currentPos - 1; i >= 0; i--) {
           const char = textContent[i];
-          if (char === "@") {
+          if (TRIGGER_CHARS.includes(char)) {
             atIndex = i;
             break;
           }
@@ -221,6 +208,7 @@ export default function WYSIWYGEditor() {
 }
 
 
+
   // Calculate dropdown position
 const calculateDropdownPosition = (cursorPos) => {
     const dropdownWidth = 250;
@@ -235,8 +223,6 @@ const calculateDropdownPosition = (cursorPos) => {
 
     return { top, left };
   };
-
-
 
 const insertField = (field) => {
   if (!atSignRange || !savedRange) {
@@ -254,12 +240,11 @@ const insertField = (field) => {
     // Render Tooltip + field UI inside the span
     ReactDOM.createRoot(span).render(
       <Tooltip title={field?.description ? field.description : null} arrow>
-        <span className="cursor-pointer" style={{ display: "inline-flex", alignItems: "center", gap: "4px" }}>
+        <span className="cursor-pointer" >
           <img
-            src="./Carrier_Connect.png"
+            src={field.type === "CC" ?  "./Carrier_Connect.png" : amsIcon}
             alt={field.displayName}
             draggable={false}
-            style={{ width: 16, height: 16 }}
           />
           <p>{field.displayName}</p>
         </span>
@@ -285,11 +270,12 @@ const insertField = (field) => {
     let node;
     while ((node = walker.nextNode())) {
       const text = node.textContent;
-      const atIndex = text.lastIndexOf("@");
+      // const atIndex = text.lastIndexOf("@");
+      const triggerIndex = Math.max(text.lastIndexOf("@"), text.lastIndexOf("/"));
 
-      if (atIndex !== -1) {
+      if (triggerIndex !== -1) {
         atNode = node;
-        atOffset = atIndex;
+        atOffset = triggerIndex;
         break;
       }
     }
@@ -367,12 +353,12 @@ function parseWithMentions(text, fieldsMap) {
             }}
           >
             <img
-              src="./Carrier_Connect.png"
+              src= {field.type === "CC" ?  "./Carrier_Connect.png" : amsIcon}
               alt={field?.displayName}
               draggable={false}
               style={{ width: 16, height: 16 }}
             />
-            <p style={{ margin: 0 }}>{field?.displayName}</p>
+            <span style={{ margin: 0 }}>{field?.displayName}</span>
           </span>
         </Tooltip>
       );
@@ -381,7 +367,6 @@ function parseWithMentions(text, fieldsMap) {
     return <span key={index}>{part}</span>;
   });
 }
-
 
   return (
     <div className="p-4">
@@ -439,7 +424,7 @@ function parseWithMentions(text, fieldsMap) {
                   }`}
                   // className="suggestion-item flex items-center gap-3 p-3 hover:bg-blue-50 focus:bg-blue-50 cursor-pointer transition-colors border-b border-gray-100 last:border-b-0"
                 >
-                 <img src="./Carrier_Connect.png" height={20} width={20}/>
+                 <img src={field.type === "CC" ?  "./Carrier_Connect.png" : amsIcon} height={20} width={20}/>
                   <div className="flex-1">
                     <span className="text-sm text-[#000000] ">
                       {field.displayName}
@@ -485,7 +470,7 @@ function parseWithMentions(text, fieldsMap) {
         onKeyDown={handleKeyDown}
         onInput={handleOnInput}
         data-placeholder="Type @ to insert a field..."
-        className="border border-gray-300 rounded-lg p-4 min-h-32 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+        className="border border-gray-300 rounded-lg p-4 text-base min-h-32 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
         style={{
           fontSize: "14px",
           lineHeight: "1.5",

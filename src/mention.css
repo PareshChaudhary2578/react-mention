@@ -1,20 +1,36 @@
-.mention-span{
- background: #f3f8ff;  
-  border-radius: 4px;  
-  padding: 2px 5px;     
+.mention-span {
+  background: #f3f8ff;
+  border-radius: 4px;
   border: 0.5px solid #dbe1e9;
   font-size: 15px;
   color: rgb(117, 115, 115);
   display: inline-flex;
-  margin-bottom: 5px;
-  /* gap: 1px; */
-  /* justify-content: center; */
-  /* align-items: center; */
-  /* width: fit-content; */
+  align-items: center; /* center icon + text vertically */
+  vertical-align: middle; /* align with normal text baseline */
+  padding: 2px 4px; /* balanced padding */
+  line-height: 1; /* prevent extra line height */
+  gap: 4px; /* space between icon and text */
 }
 
-.mention-span img{
-    height: 20px;
-    width: 20px;
-    margin-right: 5px;
+.mention-span span {
+  display: inline-flex;
+  align-items: center; /* center icon + text vertically */
+  vertical-align: middle; /* align with normal text baseline */
+  gap: 4px; /* consistent spacing */
+  line-height: 1; /* prevent extra line height */
+}
+
+.mention-span p {
+  margin: 0; /* remove default margin of <p> */
+  padding: 0; /* remove default padding */
+  font-size: 14px;
+  line-height: 1; /* match container line height */
+  display: inline; /* make it inline to prevent block behavior */
+}
+
+.mention-span img {
+  height: 18px;
+  width: 18px;
+  display: block; /* prevent inline image spacing issues */
+  flex-shrink: 0; /* prevent image from shrinking */
 }
