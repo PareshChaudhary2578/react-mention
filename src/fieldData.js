@@ -1,4 +1,4 @@
- const fields = [
+ const fieldData = [
     {
       id: "28f007bd-16fd-473c-9bfa-c16a223889a7",
       fieldName: "adjustmentType",
@@ -651,4 +651,4 @@
     },
   ];
 
-  export default fields;
+  export default fieldData;

@@ -1,11 +1,11 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Search, X } from "lucide-react";
 import "./mention.css";
-import fields from "./fieldData";
 import ReactDOM from "react-dom/client";
 import Tooltip from "@mui/material/Tooltip";
 import Typography from "@mui/material/Typography";
 import amsIcon from "./ams.svg";
+import fieldData from "./fieldData";
 
 export default function WYSIWYGEditor() {
   const editorRef = useRef(null);
@@ -17,13 +17,21 @@ export default function WYSIWYGEditor() {
   const [highlightIndex, setHighlightIndex] = useState(0);
   const itemRefs = useRef([]);
   const suggestionRef = useRef(null);
-  // const [value,setValue] = useState("test demo @@Mapped Product@@ test 13333 @@Division@@ 123");
-  const [value,setValue] = useState("");
+  const [value,setValue] = useState("set demo @@agencyID@@ is demo @@commissionPerc@@ but this is wrong $$Eff Date$$ demo $$CarrierAbbrev$$ it demo for @@vendorID@@");
+  // const [value,setValue] = useState("");
   const [isInitialized, setIsInitialized] = useState(false);
 
   const TRIGGER_CHARS = ["@", "/"];
 
-  console.log("value",value);
+
+    // Map field -> description , type
+  const descAndTypeByField = useMemo(() => {
+    const m = new Map();
+    fieldData.forEach((f) =>
+      m.set(f.fieldName, {desc : f?.description || '' , type: f?.type || ""})
+    );
+    return m;
+  }, [fieldData]);
 
   useEffect(() => {
     if (suggestionOpen) {
@@ -54,9 +62,9 @@ export default function WYSIWYGEditor() {
 
   useEffect(() => {
   if (editorRef.current && !isInitialized) {
-    const fieldsMap = Object.fromEntries(fields.map(f => [f.displayName, f]));
+    // const fieldsMap = Object.fromEntries(fields.map(f => [f.displayName, f]));
 
-    const elements = parseWithMentions(value, fieldsMap);
+    const elements = parseWithMentions(value);
 
     // Instead of innerHTML, render directly into the editor
     ReactDOM.createRoot(editorRef.current).render(<>{elements}</>);
@@ -126,13 +134,12 @@ export default function WYSIWYGEditor() {
         insertField(filteredFields[highlightIndex]);
         setSuggestionOpen(false);
         const selectedField = filteredFields[highlightIndex];
-        const prefix = selectedField.type == "CC" ? "@@" : "$$";
-        setValue((pre) => pre + prefix + selectedField.displayName + prefix);
+        appendFieldManually(selectedField);
       }
     }
   };
 
-  const filteredFields = fields.filter((field) =>
+  const filteredFields = fieldData.filter((field) =>
     field.displayName.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
@@ -183,28 +190,35 @@ export default function WYSIWYGEditor() {
           setSuggestionOpen(false);
         }
       }
-      // editorRef.current.innerHTML = editorRef.current.innerHTML.substring(0 , editorRef.current.innerHTML.length -1);
+      // editorRef.current.innerHTML = editorRef.current.innerHTML.substring(0 , editorRef.current.innerHTML.length -1);;
+      // 
     }else{
       setValue(convertEditorContentToPlain(editorRef.current.innerHTML));
     }
   };
   function convertEditorContentToPlain(text) {
-  // Parse the HTML string
-  const parser = new DOMParser();
-  const doc = parser.parseFromString(text, "text/html");
+    // Parse the HTML string
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(text, "text/html");
 
-  // Replace all mention spans with @@...@@
-  doc.querySelectorAll(".mention-span").forEach(span => {
-    const innerText = span.querySelector("span")?.textContent || "";
-    const replacement = `@@${innerText}@@`;
-    span.replaceWith(replacement);
-  });
+    // Replace all mention spans with @@...@@
+    doc.querySelectorAll(".mention-span").forEach(span => {
+      const innerText = span.getAttribute("data-field-name") || span.querySelector("span")?.textContent || "";
+      let prefix =span.getAttribute("data-field-type") == "CC" ? "@@" : "$$";
 
-  // Return the plain text (with preserved spacing)
-  return doc.body.innerHTML
-    .replace(/&nbsp;/g, " ") // convert non-breaking space
-    .replace(/\s+/g, " ")    // normalize spaces
-    .trim();
+      let replacement = `${prefix}${innerText}${prefix}`;
+      span.replaceWith(replacement);
+    });
+
+    // Return the plain text (with preserved spacing)
+    return doc.body.innerHTML
+      .replace(/&nbsp;/g, " ") // convert non-breaking space
+      .replace(/\s+/g, " ")    // normalize spaces
+      .replace("<div></div>","")
+      .replace("<br>","")
+      .replace("<span></span>","")
+      .replace("</div>","")
+      .trim();
 }
 
 
@@ -235,7 +249,8 @@ const insertField = (field) => {
     const span = document.createElement("span");
     span.contentEditable = "false";
     span.className = "mention-span";
-    span.setAttribute("data-field-id", field.id);
+    span.setAttribute("data-field-type", field.type);
+    span.setAttribute("data-field-name",field.fieldName);
 
     // Render Tooltip + field UI inside the span
     ReactDOM.createRoot(span).render(
@@ -325,47 +340,62 @@ const insertField = (field) => {
   }
 };
 
-function parseWithMentions(text, fieldsMap) {
-  const parts = text.split(/(@@.*?@@)/g);
+// get field name form @@field@@ or $$field$$
+const abstactFieldName = (field) =>{
+  if(!field) return null;
+  if(field.startsWith("@@") && field.endsWith("@@")){
+    const data = field.split("@@");
+    if(data.length < 2) return null;
+    return data[1];
+  }else if(field.startsWith("$$") && field.endsWith("$$")){
+    const data = field.split("$$");
+    if(data.length < 2) return null;
+    return data[1];
+  }
+
+  return null;
+}
+
+function parseWithMentions(text) {
+  // text = text.replace("</div>","");
+  const parts = text.split(/(@@.*?@@|\$\$.*?\$\$)/g);
+
+
 
   return parts.map((part, index) => {
-    const match = part.match(/@@(.*?)@@/);
+    if ((part.startsWith("@@") && part.endsWith("@@") ) || (part.startsWith("$$") && part.endsWith("$$"))) {
+      let fieldName = abstactFieldName(part);
 
-    if (match) {
-      const displayName = match[1];
-      const field = fieldsMap[displayName];
-
+      const {type , desc} = descAndTypeByField.get(fieldName);
       return (
-        <Tooltip
-          key={index}
-          title={field?.description || ""}
-          arrow
-        >
-          <span
-            contentEditable={false}
-            className="mention-span"
-            data-field-id={field?.id || ""}
-            style={{
-              display: "inline-flex",
-              alignItems: "center",
-              gap: "4px",
-              cursor: "pointer",
-            }}
+        <span contentEditable={false}  className="mention-span">
+          <Tooltip
+            key={index}
+            title={desc || ""}
+            arrow
           >
-            <img
-              src= {field.type === "CC" ?  "./Carrier_Connect.png" : amsIcon}
-              alt={field?.displayName}
-              draggable={false}
-              style={{ width: 16, height: 16 }}
-            />
-            <span style={{ margin: 0 }}>{field?.displayName}</span>
-          </span>
-        </Tooltip>
+            <span>
+              <img
+                src= {type === "CC" ?  "./Carrier_Connect.png" : amsIcon}
+                alt={fieldName}
+                draggable={false}
+              />
+              <p>{fieldName}</p>
+            </span>
+          </Tooltip>
+        </span>
+       
       );
     }
 
-    return <span key={index}>{part}</span>;
+    return part;
   });
+}
+
+// add menully field
+const appendFieldManually = (field) => {
+  const prefix = field.type == "CC" ? "@@" : "$$";
+  setValue((pre) => pre + prefix + field.fieldName + prefix);
 }
 
   return (
@@ -413,7 +443,10 @@ function parseWithMentions(text, fieldsMap) {
             <div className="max-h-64 overflow-y-auto ">
               {filteredFields.map((field, idx) => (
                 <div
-                  onClick={() => insertField(field)}
+                  onClick={() => {
+                    appendFieldManually(field);
+                    insertField(field);
+                  }}
                   tabIndex={0} // Make div focusable
                   ref={(el) => (itemRefs.current[idx] = el)}
                   key={field.id}

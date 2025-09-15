@@ -6,12 +6,13 @@
   color: rgb(117, 115, 115);
   display: inline-flex;
   align-items: center; /* center icon + text vertically */
-  vertical-align: middle; /* align with normal text baseline */
+  vertical-align: sub; /* align with normal text baseline */
   padding: 2px 4px; /* balanced padding */
   line-height: 1; /* prevent extra line height */
   gap: 4px; /* space between icon and text */
+  margin-bottom: 4px;
 }
-
+  
 .mention-span span {
   display: inline-flex;
   align-items: center; /* center icon + text vertically */
