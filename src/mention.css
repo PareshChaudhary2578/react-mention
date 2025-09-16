@@ -10,6 +10,7 @@
   padding: 2px 4px; /* balanced padding */
   line-height: 1; /* prevent extra line height */
   gap: 4px; /* space between icon and text */
+  margin-left: 5px;
 }
 
 .mention-span span {
