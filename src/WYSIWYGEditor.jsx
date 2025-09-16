@@ -70,7 +70,6 @@ export default function WYSIWYGEditor() {
     ReactDOM.createRoot(editorRef.current).render(<>{elements}</>);
 
     setTimeout(() => {
-      setCursorToEnd();
       setIsInitialized(true);
     }, 0);
   }
@@ -136,8 +135,26 @@ export default function WYSIWYGEditor() {
         const selectedField = filteredFields[highlightIndex];
         appendFieldManually(selectedField);
       }
-    }
-  };
+    }else   if (e.key === "Enter" && !suggestionOpen) {
+      // // Just Enter key in editor → insert line break
+      // e.preventDefault();
+      // const selection = window.getSelection();
+      // if (!selection || selection.rangeCount === 0) return;
+
+      // const range = selection.getRangeAt(0);
+      // range.deleteContents();
+
+      // // Insert a line break
+      // const br = document.createElement("br");
+      // range.insertNode(br);
+
+      // // Move cursor after the line break
+      // range.setStartAfter(br);
+      // range.setEndAfter(br);
+      // selection.removeAllRanges();
+      // selection.addRange(range);
+  }
+};
 
   const filteredFields = fieldData.filter((field) =>
     field.displayName.toLowerCase().includes(searchTerm.toLowerCase())
@@ -220,8 +237,6 @@ export default function WYSIWYGEditor() {
       .replace("</div>","")
       .trim();
 }
-
-
 
   // Calculate dropdown position
 const calculateDropdownPosition = (cursorPos) => {
@@ -392,11 +407,45 @@ function parseWithMentions(text) {
   });
 }
 
-// add menully field
-const appendFieldManually = (field) => {
-  const prefix = field.type == "CC" ? "@@" : "$$";
-  setValue((pre) => pre + prefix + field.fieldName + prefix);
-}
+useEffect(() => {
+  if (editorRef.current) {
+    editorRef.current.addEventListener("paste", handlePaste, true);
+  }
+  return () => {
+    if (editorRef.current) {
+      editorRef.current.removeEventListener("paste", handlePaste, true);
+    }
+  };
+}, []);
+
+
+const handlePaste = (e) => {
+  e.preventDefault();
+
+  // Always grab plain text only
+  const plainText = e.clipboardData.getData("text/plain");
+
+  console.log("pasting", plainText);
+
+  // Insert at caret position
+  const selection = window.getSelection();
+  if (!selection.rangeCount) return;
+
+  const range = selection.getRangeAt(0);
+  range.deleteContents();
+  range.insertNode(document.createTextNode(plainText));
+
+  // Move cursor to end of inserted text
+  range.collapse(false);
+  selection.removeAllRanges();
+  selection.addRange(range);
+};
+
+const handleOnChange = (e) => {
+  console.log("changed", e.target.innerHTML);
+};
+
+
 
   return (
     <div className="p-4">
@@ -501,13 +550,13 @@ const appendFieldManually = (field) => {
         ref={editorRef}
         contentEditable={true}
         onKeyDown={handleKeyDown}
-        onInput={handleOnInput}
         data-placeholder="Type @ to insert a field..."
         className="border border-gray-300 rounded-lg p-4 text-base min-h-32 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
         style={{
           fontSize: "14px",
           lineHeight: "1.5",
         }}
+        onChange={(e) => handleOnChange(e)}
       ></div>
     </div>
   );
