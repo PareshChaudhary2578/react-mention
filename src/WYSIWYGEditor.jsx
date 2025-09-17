@@ -303,12 +303,14 @@ const insertField = (field) => {
       // const atIndex = text.lastIndexOf("@");
       const triggerIndex = Math.max(text.lastIndexOf("@"), text.lastIndexOf("/"));
 
+
       if (triggerIndex !== -1) {
         atNode = node;
         atOffset = triggerIndex;
-        break;
+        // break;
       }
     }
+
 
     if (atNode && atOffset !== -1) {
       // Create range from @ to current cursor position
