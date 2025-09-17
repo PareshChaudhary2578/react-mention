@@ -23,6 +23,8 @@ export default function WYSIWYGEditor() {
 
   const TRIGGER_CHARS = ["@", "/"];
 
+  console.log("value",value);
+
 
     // Map field -> description , type
   const descAndTypeByField = useMemo(() => {
@@ -238,6 +240,12 @@ export default function WYSIWYGEditor() {
       .trim();
 }
 
+// add menully field
+const appendFieldManually = (field) => {
+  const prefix = field.type == "CC" ? "@@" : "$$";
+  setValue((pre) => pre + prefix + field.fieldName + prefix);
+}
+
   // Calculate dropdown position
 const calculateDropdownPosition = (cursorPos) => {
     const dropdownWidth = 250;
@@ -283,33 +291,41 @@ const insertField = (field) => {
 
     // Get current selection
     const selection = window.getSelection();
-    selection.removeAllRanges();
 
-    // Find and replace everything from @ to current cursor position
-    const currentRange = document.createRange();
-    const walker = document.createTreeWalker(
-      editorRef.current,
-      NodeFilter.SHOW_TEXT,
-      null,
-      false
-    );
+    const cursorRange = selection.getRangeAt(0);
+    const cursorNode = cursorRange.startContainer;
+    const cursorOffset = cursorRange.startOffset;
 
-    let atNode = null;
-    let atOffset = -1;
+        
+    // Look backwards inside THIS node only
+    const textBeforeCursor = cursorNode.textContent.slice(0, cursorOffset);
+    const lastAt = textBeforeCursor.lastIndexOf("@");
+    const lastSlash = textBeforeCursor.lastIndexOf("/");
 
-    let node;
-    while ((node = walker.nextNode())) {
-      const text = node.textContent;
-      // const atIndex = text.lastIndexOf("@");
-      const triggerIndex = Math.max(text.lastIndexOf("@"), text.lastIndexOf("/"));
+    const triggerIndex = Math.max(lastAt, lastSlash);
 
+    if (triggerIndex !== -1) {
+      const atNode = cursorNode;
+      const atOffset = triggerIndex;
 
-      if (triggerIndex !== -1) {
-        atNode = node;
-        atOffset = triggerIndex;
-        // break;
-      }
+      console.log("atNode, atOffset", atNode, atOffset);
+
+      // Now create your range from trigger → cursor
+      const currentRange = document.createRange();
+      currentRange.setStart(atNode, atOffset);
+      currentRange.setEnd(cursorNode, cursorOffset);
+
+      // Delete the @...typed search
+      currentRange.deleteContents();
+      currentRange.insertNode(span);
+
+      // Move cursor after span
+      currentRange.setStartAfter(span);
+      currentRange.setEndAfter(span);
+      selection.removeAllRanges();
+      selection.addRange(currentRange);
     }
+
 
 
     if (atNode && atOffset !== -1) {
@@ -427,8 +443,6 @@ const handlePaste = (e) => {
   // Always grab plain text only
   const plainText = e.clipboardData.getData("text/plain");
 
-  console.log("pasting", plainText);
-
   // Insert at caret position
   const selection = window.getSelection();
   if (!selection.rangeCount) return;
@@ -442,11 +456,6 @@ const handlePaste = (e) => {
   selection.removeAllRanges();
   selection.addRange(range);
 };
-
-const handleOnChange = (e) => {
-  console.log("changed", e.target.innerHTML);
-};
-
 
 
   return (
@@ -552,13 +561,13 @@ const handleOnChange = (e) => {
         ref={editorRef}
         contentEditable={true}
         onKeyDown={handleKeyDown}
+        onInput={handleOnInput}
         data-placeholder="Type @ to insert a field..."
         className="border border-gray-300 rounded-lg p-4 text-base min-h-32 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
         style={{
           fontSize: "14px",
           lineHeight: "1.5",
         }}
-        onChange={(e) => handleOnChange(e)}
       ></div>
     </div>
   );
