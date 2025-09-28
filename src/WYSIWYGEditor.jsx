@@ -134,10 +134,40 @@ export default function WYSIWYGEditor() {
         insertField(filteredFields[highlightIndex]);
         setSuggestionOpen(false);
         const selectedField = filteredFields[highlightIndex];
-        appendFieldManually(selectedField);
+        // appendFieldManually(selectedField);
       }
-    }
+    }else if(e.key == "Enter" && !suggestionOpen){
+       e.preventDefault();
+
+      const sel = window.getSelection();
+      if (!sel || sel.rangeCount === 0) return;
+      const range = sel.getRangeAt(0);
+
+      // delete any selection contents (if any)
+      range.deleteContents();
+
+      // create and insert <br>
+      const br = document.createElement("br");
+      range.insertNode(br);
+
+      // insert an invisible text node after <br> so caret can be placed
+      const zw = document.createTextNode("\u200B");
+      br.parentNode.insertBefore(zw, br.nextSibling);
+
+      // move caret inside the zero-width text node (start)
+      const newRange = document.createRange();
+      newRange.setStart(zw, 0);
+      newRange.setEnd(zw, 0);
+
+      sel.removeAllRanges();
+      sel.addRange(newRange);
+
+      editorRef.current.focus();
+
+      setValue(JSON.stringify(convertEditorContentToPlain(editorRef.current.innerHTML)));
+}
   };
+
 
   const filteredFields = fieldData.filter((field) =>
     field.displayName.toLowerCase().includes(searchTerm.toLowerCase())
@@ -193,10 +223,12 @@ export default function WYSIWYGEditor() {
       // editorRef.current.innerHTML = editorRef.current.innerHTML.substring(0 , editorRef.current.innerHTML.length -1);;
       // 
     }else{
-      setValue(convertEditorContentToPlain(editorRef.current.innerHTML));
+      setValue(JSON.stringify(convertEditorContentToPlain(editorRef.current.innerHTML)));
     }
   };
-  function convertEditorContentToPlain(text) {
+ 
+
+function convertEditorContentToPlain(text) {
     // Parse the HTML string
     const parser = new DOMParser();
     const doc = parser.parseFromString(text, "text/html");
@@ -210,18 +242,18 @@ export default function WYSIWYGEditor() {
       span.replaceWith(replacement);
     });
 
-    // Return the plain text (with preserved spacing)
     return doc.body.innerHTML
-      .replace(/&nbsp;/g, " ") // convert non-breaking space
-      .replace(/\s+/g, " ")    // normalize spaces
-      .replace("<div></div>","")
-      .replace("<br>","")
-      .replace("<span></span>","")
-      .replace("</div>","")
+      .replace(/<div[^>]*>/g, "\n")
+      .replace(/<\/div>/g, "")
+      .replace(/<br\s*\/?>/g, "\n")      // remove <br>
+      .replace(/&nbsp;/g, " ")
+      .replace(/&amp;/g, "&")
+      .replace(/&lt;/g, "<")
+      .replace(/&gt;/g, ">")
+      .replace(/\\n/g, "\n")  // convert \n to actual newline
       .trim();
+
 }
-
-
 
   // Calculate dropdown position
 const calculateDropdownPosition = (cursorPos) => {
@@ -334,6 +366,10 @@ const insertField = (field) => {
 
     // Focus back to editor
     editorRef.current.focus();
+
+     // get Current value and update state
+    const newValue = convertEditorContentToPlain(editorRef.current.innerHTML);
+    updatePromptMenully(newValue);
   } catch (error) {
     console.error("Error inserting field:", error);
     setSuggestionOpen(false);
@@ -393,10 +429,11 @@ function parseWithMentions(text) {
 }
 
 // add menully field
-const appendFieldManually = (field) => {
-  const prefix = field.type == "CC" ? "@@" : "$$";
-  setValue((pre) => pre + prefix + field.fieldName + prefix);
+const updatePromptMenully = (newPrompt) => {
+  setValue(JSON.stringify(newPrompt));
 }
+
+console.log(value);
 
   return (
     <div className="p-4">
@@ -444,7 +481,7 @@ const appendFieldManually = (field) => {
               {filteredFields.map((field, idx) => (
                 <div
                   onClick={() => {
-                    appendFieldManually(field);
+                    // appendFieldManually(field);
                     insertField(field);
                   }}
                   tabIndex={0} // Make div focusable
